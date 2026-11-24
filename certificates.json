@@ -1,0 +1,13 @@
+{
+  "SPK-BIPA1-8942X": {
+    "name": "Example Learner",
+    "course": "BIPA Level 1: Elementary Indonesian",
+    "cefr": "A1",
+    "date": "November 24, 2026",
+    "skills": [
+      "Basic Indonesian Greetings & Introductions",
+      "Daily Routines, Numbers & Time",
+      "Shopping, Directions & Cultural Etiquette"
+    ]
+  }
+}
