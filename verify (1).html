@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Speakesia Credential Verification</title>
+  <style>
+    :root {
+      --primary: #b91c1c;
+      --primary-dark: #991b1b;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success-bg: #ecfdf5;
+      --success-text: #065f46;
+      --error-bg: #fef2f2;
+      --error-text: #991b1b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem; }
+    .container { width: 100%; max-width: 640px; }
+    .header { text-align: center; margin-bottom: 1.5rem; }
+    .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; text-decoration: none; }
+    .subtitle { font-size: 0.9rem; color: var(--muted); margin-top: 0.25rem; }
+    .search-box { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .search-box input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; }
+    .search-box input:focus { border-color: var(--primary); }
+    .search-box button { background: var(--primary); color: #fff; border: none; padding: 0.75rem 1.25rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .search-box button:hover { background: var(--primary-dark); }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05); }
+    .badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+    .badge.valid { background: var(--success-bg); color: var(--success-text); }
+    .badge.invalid { background: var(--error-bg); color: var(--error-text); }
+    .label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; margin-bottom: 0.25rem; }
+    .recipient { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .course-title { font-size: 1.15rem; font-weight: 600; color: var(--text); margin-bottom: 1.25rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; padding: 1.25rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+    .value { font-size: 0.95rem; font-weight: 600; }
+    .skills { list-style: none; margin-top: 0.5rem; margin-bottom: 1.5rem; }
+    .skills li { font-size: 0.9rem; color: #334155; padding: 0.3rem 0; display: flex; align-items: center; gap: 0.5rem; }
+    .skills li::before { content: "✓"; color: var(--success-text); font-weight: 700; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .btn { display: inline-block; padding: 0.65rem 1.1rem; border-radius: 8px; font-size: 0.88rem; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid var(--border); color: var(--text); background: #fff; }
+    .btn-linkedin { background: #0a66c2; color: #fff; border-color: #0a66c2; }
+    .btn-linkedin:hover { background: #004182; }
+    .footer { text-align: center; margin-top: 2rem; font-size: 0.82rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="index.html" class="brand">SPEAKESIA</a>
+      <p class="subtitle">Official BIPA Credential Verification Portal</p>
+    </div>
+
+    <form class="search-box" id="lookupForm">
+      <input type="text" id="certInput" placeholder="Enter Credential ID (e.g., SPK-BIPA1-8942X)" required />
+      <button type="submit">Verify</button>
+    </form>
+
+    <div id="result"></div>
+
+    <div class="footer">
+      Aligned with Standar Kompetensi Lulusan (SKL) BIPA • Speakesia Indonesian Language Learning
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://fxpgmjfvmbclbjszcxtn.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_y2pr19jrC5Tr_WY1d2XGJg_uZcAEFQs";
+
+    const params = new URLSearchParams(window.location.search);
+    const initialId = (params.get("id") || "").trim().toUpperCase();
+    const resultEl = document.getElementById("result");
+    const inputEl = document.getElementById("certInput");
+
+    document.getElementById("lookupForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = inputEl.value.trim().toUpperCase();
+      if (!id) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set("id", id);
+      window.history.pushState({}, "", url);
+      verifyCredential(id);
+    });
+
+    async function fetchFromSupabase(certId) {
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/certificates?cert_id=eq.${encodeURIComponent(certId)}&select=*`,
+          {
+            headers: {
+              "apikey": SUPABASE_KEY,
+              "Authorization": `Bearer ${SUPABASE_KEY}`
+            }
+          }
+        );
+        if (!res.ok) return null;
+        const rows = await res.json();
+        if (!rows || rows.length === 0) return null;
+        const row = rows[0];
+        return {
+          name: row.name,
+          course: row.course,
+          cefr: row.cefr,
+          date: row.issue_date,
+          skills: row.skills || []
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function fetchFromLocalJson(certId) {
+      try {
+        const res = await fetch("certificates.json?v=" + Date.now());
+        if (!res.ok) return null;
+        const registry = await res.json();
+        return registry[certId] || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function verifyCredential(certId) {
+      inputEl.value = certId;
+      resultEl.innerHTML = `<div class="card"><p class="subtitle">Checking official credential registry...</p></div>`;
+
+      let record = await fetchFromSupabase(certId);
+      if (!record) {
+        record = await fetchFromLocalJson(certId);
+      }
+
+      if (!record) {
+        resultEl.innerHTML = `
+          <div class="card">
+            <div class="badge invalid">✕ Unverified Credential</div>
+            <p class="course-title">No certificate found for ID: ${escapeHtml(certId)}</p>
+            <p class="subtitle">Please check the Credential ID for typos and try again.</p>
+          </div>`;
+        return;
+      }
+
+      const verifyUrl = window.location.origin + window.location.pathname + "?id=" + encodeURIComponent(certId);
+      const linkedInUrl = new URL("https://www.linkedin.com/profile/add");
+      linkedInUrl.searchParams.set("startTask", "CERTIFICATION_NAME");
+      linkedInUrl.searchParams.set("name", record.course);
+      linkedInUrl.searchParams.set("organizationName", "Speakesia");
+      linkedInUrl.searchParams.set("certId", certId);
+      linkedInUrl.searchParams.set("certUrl", verifyUrl);
+
+      const skillsHtml = (record.skills || [])
+        .map((s) => `<li>${escapeHtml(s)}</li>`)
+        .join("");
+
+      resultEl.innerHTML = `
+        <div class="card">
+          <div class="badge valid">✓ Verified Credential</div>
+          <div class="label">Awarded To</div>
+          <div class="recipient">${escapeHtml(record.name)}</div>
+
+          <div class="label">Program Completed</div>
+          <div class="course-title">${escapeHtml(record.course)}</div>
+
+          <div class="grid">
+            <div>
+              <div class="label">Credential ID</div>
+              <div class="value">${escapeHtml(certId)}</div>
+            </div>
+            <div>
+              <div class="label">CEFR Equivalent</div>
+              <div class="value">${escapeHtml(record.cefr || "N/A")}</div>
+            </div>
+            <div>
+              <div class="label">Issue Date</div>
+              <div class="value">${escapeHtml(record.date)}</div>
+            </div>
+          </div>
+
+          ${skillsHtml ? `<div class="label">Verified Competencies</div><ul class="skills">${skillsHtml}</ul>` : ""}
+
+          <div class="actions">
+            <a href="${linkedInUrl.toString()}" target="_blank" rel="noopener noreferrer" class="btn btn-linkedin">Add to LinkedIn</a>
+            <button type="button" class="btn" onclick="navigator.clipboard.writeText('${verifyUrl}'); this.textContent='Link Copied!';">Copy Verification Link</button>
+          </div>
+        </div>`;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[m]));
+    }
+
+    if (initialId) {
+      verifyCredential(initialId);
+    }
+  </script>
+</body>
+</html>
